@@ -27,6 +27,8 @@ from music_theory import (
     CHORD_TYPES,
 )
 from midi_gen import progression_to_midi, MIDI_INSTRUMENTS
+from engines import apply_voice_leading, generate_song_structure, generate_melody, CONTOUR_SHAPES, RHYTHM_PATTERNS
+from hit_database import search_hits, get_progression_stats
 
 import random
 
@@ -34,7 +36,7 @@ app = FastAPI(
     title="ChordCraft API",
     description="Generate chord progressions, scales, and MIDI files for music production. "
     "Supports multiple genres, moods, inversions, and music theory operations.",
-    version="1.1.0",
+    version="1.2.0",
     docs_url=None,
     redoc_url=None,
 )
@@ -569,10 +571,99 @@ CUSTOM_DOCS_HTML = """<!DOCTYPE html>
                 </div>
             </div>
         </div>
+        <div class="section">
+            <div class="section-title" style="color: #f59e0b;">Engines (What Makes Us Different)</div>
+            <div class="endpoint-group">
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method" style="background: #7c2d12; color: #fb923c;">GET</span>
+                        <span class="endpoint-path">/voice-leading</span>
+                        <span class="endpoint-desc">Optimize chord voicings for smooth transitions</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Applies professional voice leading to any progression — minimizes note movement between chords so voicings sound smooth and connected instead of jumpy. Returns a smoothness rating, per-voice motion analysis, and optimized MIDI.</p>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/voice-leading?key=C&scale=minor&genre=rnb&sevenths=true</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method" style="background: #7c2d12; color: #fb923c;">GET</span>
+                        <span class="endpoint-path">/song-structure</span>
+                        <span class="endpoint-desc">Generate a full song blueprint</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Generates a complete song layout with sections (intro, verse, chorus, bridge, etc.), bars per section, energy curve, chord progressions for each part, BPM, estimated duration, and producer tips per section.</p>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/song-structure?key=F&genre=trap&mood=dark</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method" style="background: #7c2d12; color: #fb923c;">GET</span>
+                        <span class="endpoint-path">/melody</span>
+                        <span class="endpoint-desc">Generate melodies over chord progressions</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Creates scale-aware melodies with customizable contour shapes (arch, wave, zigzag, etc.) and rhythm patterns (syncopated, sparse, bounce, etc.). Genre-aware — trap melodies feel different from jazz melodies.</p>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/melody?key=A&scale=minor&genre=trap&contour=wave&rhythm=trap_hats</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title" style="color: #10b981;">Hit Song Database</div>
+            <div class="endpoint-group">
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method" style="background: #064e3b; color: #6ee7b7;">GET</span>
+                        <span class="endpoint-path">/hits</span>
+                        <span class="endpoint-desc">Search real hit song data (2016–2025)</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Search a curated database of 60+ modern hits with their actual keys, BPMs, scales, and chord progressions. Filter by genre, mood, key, year range, or BPM range. Learn what the pros use.</p>
+                        <div class="try-box">
+                            <div class="try-label">Examples</div>
+                            <div class="try-url">/hits?genre=trap&mood=dark</div>
+                            <div class="try-url" style="margin-top:6px">/hits?key=C&year_from=2022</div>
+                            <div class="try-url" style="margin-top:6px">/hits?bpm_min=80&bpm_max=100&genre=rnb</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method" style="background: #064e3b; color: #6ee7b7;">GET</span>
+                        <span class="endpoint-path">/hits/stats</span>
+                        <span class="endpoint-desc">Analytics on what keys/BPMs/progressions hit songs use</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Aggregated analytics across the entire hit database — most common keys, scales, moods, progressions, and average BPM by genre. Data-driven production decisions.</p>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/hits/stats</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <div class="footer">
-        ChordCraft API v1.1.0 &mdash; Built for producers, by a producer.
+        ChordCraft API v1.2.0 &mdash; Built for producers, by a producer.
     </div>
 </body>
 </html>"""
@@ -980,6 +1071,154 @@ def list_instruments():
         "instruments": list(MIDI_INSTRUMENTS.keys()),
         "count": len(MIDI_INSTRUMENTS),
     }
+
+
+# ─── Voice Leading Engine ───
+@app.get("/voice-leading", tags=["Engines"])
+def voice_leading(
+    key: str = Query("C", description="Root note"),
+    scale: Optional[str] = Query(None, description="Scale type"),
+    genre: Optional[str] = Query(None, description="Genre"),
+    mood: Optional[str] = Query(None, description="Mood"),
+    chords: int = Query(4, ge=2, le=16, description="Number of chords"),
+    sevenths: bool = Query(False, description="Use 7th chords"),
+    seed: Optional[int] = Query(None, description="Random seed"),
+):
+    """
+    Generate a chord progression with optimized voice leading.
+
+    Minimizes note movement between chords for smooth, professional voicings.
+    Returns a smoothness rating and per-voice motion analysis.
+    """
+    try:
+        result = generate_progression(
+            key=key, scale_type=scale, genre=genre, mood=mood,
+            num_chords=chords, use_7ths=sevenths, seed=seed,
+        )
+        flats = uses_flats(key)
+        voiced = apply_voice_leading(result["chords"], use_flats=flats)
+
+        return {
+            "key": key,
+            "scale": result["scale"],
+            "genre": result["genre"],
+            "mood": mood,
+            "progression_label": result["progression_label"],
+            **voiced,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ─── Song Structure Engine ───
+@app.get("/song-structure", tags=["Engines"])
+def song_structure(
+    key: str = Query("C", description="Root note"),
+    genre: str = Query("pop", description="Genre"),
+    mood: Optional[str] = Query(None, description="Mood"),
+    scale: Optional[str] = Query(None, description="Scale type"),
+    bpm: Optional[int] = Query(None, ge=40, le=300, description="BPM (auto-selected if omitted)"),
+    sevenths: bool = Query(False, description="Use 7th chords"),
+    seed: Optional[int] = Query(None, description="Random seed"),
+):
+    """
+    Generate a full song blueprint with sections, energy curve, and progressions.
+
+    Returns intro, verse, chorus, bridge, etc. with bars, energy levels,
+    chord progressions per section, estimated duration, and producer tips.
+    """
+    try:
+        return generate_song_structure(
+            key=key, genre=genre, mood=mood, scale=scale,
+            bpm=bpm, use_7ths=sevenths, seed=seed,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ─── Melody Engine ───
+@app.get("/melody", tags=["Engines"])
+def melody(
+    key: str = Query("C", description="Root note"),
+    scale: str = Query("minor", description="Scale type"),
+    genre: str = Query("pop", description="Genre"),
+    contour: Optional[str] = Query(None, description="Melody contour shape (arch, wave, zigzag, ascending, descending, valley, peak, flat)"),
+    rhythm: Optional[str] = Query(None, description="Rhythm pattern (simple, syncopated, driving, sparse, dotted, offbeat, trap_hats, bounce)"),
+    notes_per_chord: int = Query(8, ge=2, le=32, description="Melody notes per chord"),
+    octave: int = Query(4, ge=2, le=6, description="Starting octave"),
+    seed: Optional[int] = Query(None, description="Random seed"),
+):
+    """
+    Generate a melody that fits over a chord progression.
+
+    Uses scale-aware note selection, customizable contour shapes, and
+    genre-appropriate rhythm patterns. Returns MIDI notes, beat positions,
+    chord tone analysis, and motion statistics.
+    """
+    try:
+        return generate_melody(
+            key=key, scale=scale, genre=genre, contour=contour,
+            rhythm=rhythm, notes_per_chord=notes_per_chord,
+            octave=octave, seed=seed,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/melody/contours", tags=["Engines"])
+def list_contours():
+    """List all available melody contour shapes."""
+    return {
+        "contours": {name: shape for name, shape in CONTOUR_SHAPES.items()},
+        "count": len(CONTOUR_SHAPES),
+    }
+
+
+@app.get("/melody/rhythms", tags=["Engines"])
+def list_rhythms():
+    """List all available rhythm patterns."""
+    return {
+        "rhythms": {name: pattern for name, pattern in RHYTHM_PATTERNS.items()},
+        "count": len(RHYTHM_PATTERNS),
+    }
+
+
+# ─── Hit Song Database ───
+@app.get("/hits", tags=["Hit Database"])
+def hits(
+    genre: Optional[str] = Query(None, description="Filter by genre"),
+    mood: Optional[str] = Query(None, description="Filter by mood"),
+    key: Optional[str] = Query(None, description="Filter by key"),
+    scale: Optional[str] = Query(None, description="Filter by scale type"),
+    year_from: Optional[int] = Query(None, description="Filter from year"),
+    year_to: Optional[int] = Query(None, description="Filter to year"),
+    bpm_min: Optional[int] = Query(None, description="Minimum BPM"),
+    bpm_max: Optional[int] = Query(None, description="Maximum BPM"),
+):
+    """
+    Search a curated database of 60+ modern hits (2016–2025).
+
+    Find real songs by genre, mood, key, BPM range, or year. Returns
+    the actual key, BPM, scale, chord progression, and mood for each hit.
+    Learn what works in real music.
+    """
+    results = search_hits(
+        genre=genre, mood=mood, key=key,
+        year_from=year_from, year_to=year_to,
+        bpm_min=bpm_min, bpm_max=bpm_max, scale=scale,
+    )
+    return {"count": len(results), "hits": results}
+
+
+@app.get("/hits/stats", tags=["Hit Database"])
+def hits_stats():
+    """
+    Aggregated analytics across the hit database.
+
+    Returns the most common keys, scales, moods, progression patterns,
+    and average BPM by genre. Data-driven production decisions.
+    """
+    return get_progression_stats()
 
 
 if __name__ == "__main__":
