@@ -383,6 +383,19 @@ def generate_progression(
     scale_type = scale_type.lower()
     genre = genre.lower()
 
+    # Genre aliases so common names all work
+    genre_aliases = {
+        "rap": "hiphop",
+        "hip-hop": "hiphop",
+        "hip hop": "hiphop",
+        "r&b": "rnb",
+        "r and b": "rnb",
+        "lo-fi": "lofi",
+        "lo fi": "lofi",
+        "electronic": "edm",
+    }
+    genre = genre_aliases.get(genre, genre)
+
     if genre not in GENRE_PROGRESSIONS:
         raise ValueError(f"Unknown genre: {genre}. Available: {list(GENRE_PROGRESSIONS.keys())}")
 

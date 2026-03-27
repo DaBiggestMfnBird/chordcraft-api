@@ -6,7 +6,7 @@ Built for RapidAPI marketplace.
 import os
 
 from fastapi import FastAPI, Query, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 
@@ -35,9 +35,552 @@ app = FastAPI(
     description="Generate chord progressions, scales, and MIDI files for music production. "
     "Supports multiple genres, moods, inversions, and music theory operations.",
     version="1.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None,
+    redoc_url=None,
 )
+
+CUSTOM_DOCS_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChordCraft API</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e8;
+            min-height: 100vh;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 40%, #2d1b69 70%, #1a0a2e 100%);
+            padding: 48px 32px 32px;
+            text-align: center;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+        }
+
+        .hero * { position: relative; }
+
+        .logo {
+            font-size: 40px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #a78bfa, #7c3aed, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+
+        .tagline {
+            color: #9ca3af;
+            font-size: 16px;
+            margin-top: 8px;
+            font-weight: 400;
+        }
+
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: rgba(139, 92, 246, 0.15);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #c4b5fd;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .quick-links {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .quick-link {
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: #c4b5fd;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .quick-link:hover {
+            background: rgba(139, 92, 246, 0.35);
+            border-color: #7c3aed;
+            color: #fff;
+        }
+
+        .quick-link.primary {
+            background: #7c3aed;
+            border-color: #7c3aed;
+            color: #fff;
+        }
+
+        .quick-link.primary:hover {
+            background: #6d28d9;
+        }
+
+        .content {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        .section {
+            margin-bottom: 32px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #7c3aed;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .endpoint-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .endpoint {
+            background: #111118;
+            border: 1px solid #1e1e2e;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .endpoint:hover {
+            border-color: rgba(139, 92, 246, 0.4);
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            padding: 14px 18px;
+            cursor: pointer;
+            gap: 14px;
+            user-select: none;
+        }
+
+        .method {
+            background: #065f46;
+            color: #6ee7b7;
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            min-width: 48px;
+            text-align: center;
+        }
+
+        .endpoint-path {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            color: #e5e7eb;
+        }
+
+        .endpoint-desc {
+            color: #6b7280;
+            font-size: 13px;
+            margin-left: auto;
+        }
+
+        .endpoint-arrow {
+            color: #4b5563;
+            transition: transform 0.2s;
+            font-size: 12px;
+        }
+
+        .endpoint.open .endpoint-arrow {
+            transform: rotate(90deg);
+        }
+
+        .endpoint-body {
+            display: none;
+            padding: 0 18px 18px;
+            border-top: 1px solid #1e1e2e;
+        }
+
+        .endpoint.open .endpoint-body {
+            display: block;
+        }
+
+        .endpoint-body p {
+            color: #9ca3af;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 14px;
+            margin-top: 14px;
+        }
+
+        .params-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .params-table th {
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6b7280;
+            padding: 8px 12px;
+            border-bottom: 1px solid #1e1e2e;
+        }
+
+        .params-table td {
+            padding: 10px 12px;
+            font-size: 13px;
+            border-bottom: 1px solid #1a1a24;
+        }
+
+        .param-name {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            color: #c4b5fd;
+            font-weight: 500;
+        }
+
+        .param-type {
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .param-desc { color: #9ca3af; }
+
+        .param-default {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            color: #6ee7b7;
+            font-size: 12px;
+        }
+
+        .try-box {
+            background: #0d0d15;
+            border: 1px solid #1e1e2e;
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 14px;
+        }
+
+        .try-url {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            color: #a78bfa;
+            word-break: break-all;
+        }
+
+        .try-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6b7280;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 40px 24px;
+            color: #4b5563;
+            font-size: 13px;
+            border-top: 1px solid #1e1e2e;
+        }
+
+        @media (max-width: 640px) {
+            .endpoint-desc { display: none; }
+            .logo { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <div class="logo">ChordCraft</div>
+        <div class="tagline">Chord progressions, scales & MIDI for music production</div>
+        <div class="badges">
+            <span class="badge">10 Genres</span>
+            <span class="badge">10 Moods</span>
+            <span class="badge">12 Scales</span>
+            <span class="badge">20+ Chord Types</span>
+            <span class="badge">MIDI Export</span>
+            <span class="badge">22 Instruments</span>
+        </div>
+        <div class="quick-links">
+            <a href="/openapi.json" class="quick-link">OpenAPI Spec</a>
+            <a href="/progression?key=C&scale=minor&genre=trap&mood=dark" class="quick-link primary">Try It</a>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="section">
+            <div class="section-title">Progressions</div>
+            <div class="endpoint-group">
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/progression</span>
+                        <span class="endpoint-desc">Generate a chord progression</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Generate a chord progression based on key, scale, genre, and mood. Returns chord names, notes, MIDI values, and roman numeral analysis.</p>
+                        <table class="params-table">
+                            <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                            <tr><td class="param-name">key</td><td class="param-type">string</td><td class="param-default">C</td><td class="param-desc">Root note (C, F#, Bb, etc.)</td></tr>
+                            <tr><td class="param-name">scale</td><td class="param-type">string</td><td class="param-default">-</td><td class="param-desc">Scale type (major, minor, dorian, etc.)</td></tr>
+                            <tr><td class="param-name">genre</td><td class="param-type">string</td><td class="param-default">-</td><td class="param-desc">Genre (trap, lofi, jazz, pop, rnb, etc.)</td></tr>
+                            <tr><td class="param-name">mood</td><td class="param-type">string</td><td class="param-default">-</td><td class="param-desc">Mood (dark, chill, happy, sad, dreamy)</td></tr>
+                            <tr><td class="param-name">chords</td><td class="param-type">int</td><td class="param-default">4</td><td class="param-desc">Number of chords (2-16)</td></tr>
+                            <tr><td class="param-name">sevenths</td><td class="param-type">bool</td><td class="param-default">false</td><td class="param-desc">Use 7th chords</td></tr>
+                            <tr><td class="param-name">inversion</td><td class="param-type">int</td><td class="param-default">0</td><td class="param-desc">Chord inversion (0-3)</td></tr>
+                            <tr><td class="param-name">seed</td><td class="param-type">int</td><td class="param-default">-</td><td class="param-desc">Random seed for reproducibility</td></tr>
+                        </table>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/progression?key=C&scale=minor&genre=trap&mood=dark&sevenths=true</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/progression/batch</span>
+                        <span class="endpoint-desc">Generate multiple progressions</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Generate multiple unique chord progressions at once. Returns up to 10 options, saving API calls.</p>
+                        <table class="params-table">
+                            <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                            <tr><td class="param-name">key</td><td class="param-type">string</td><td class="param-default">C</td><td class="param-desc">Root note</td></tr>
+                            <tr><td class="param-name">scale</td><td class="param-type">string</td><td class="param-default">-</td><td class="param-desc">Scale type</td></tr>
+                            <tr><td class="param-name">genre</td><td class="param-type">string</td><td class="param-default">-</td><td class="param-desc">Genre</td></tr>
+                            <tr><td class="param-name">mood</td><td class="param-type">string</td><td class="param-default">-</td><td class="param-desc">Mood</td></tr>
+                            <tr><td class="param-name">count</td><td class="param-type">int</td><td class="param-default">5</td><td class="param-desc">Number of progressions (1-10)</td></tr>
+                        </table>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/progression/batch?key=A&scale=minor&genre=rnb&count=5</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/progression/midi</span>
+                        <span class="endpoint-desc">Download as MIDI file</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Generate a progression and download it as a MIDI file. Drag it straight into your DAW.</p>
+                        <table class="params-table">
+                            <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                            <tr><td class="param-name">key</td><td class="param-type">string</td><td class="param-default">C</td><td class="param-desc">Root note</td></tr>
+                            <tr><td class="param-name">genre</td><td class="param-type">string</td><td class="param-default">-</td><td class="param-desc">Genre</td></tr>
+                            <tr><td class="param-name">bpm</td><td class="param-type">int</td><td class="param-default">120</td><td class="param-desc">Tempo (40-300)</td></tr>
+                            <tr><td class="param-name">beats_per_chord</td><td class="param-type">int</td><td class="param-default">4</td><td class="param-desc">Beats per chord (1-16)</td></tr>
+                            <tr><td class="param-name">instrument</td><td class="param-type">string</td><td class="param-default">piano</td><td class="param-desc">MIDI instrument (22 options)</td></tr>
+                            <tr><td class="param-name">inversion</td><td class="param-type">int</td><td class="param-default">0</td><td class="param-desc">Chord inversion (0-3)</td></tr>
+                        </table>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/progression/midi?key=F&genre=lofi&bpm=85&instrument=electric_piano</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/random</span>
+                        <span class="endpoint-desc">Surprise me — random everything</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Picks a random key, genre, mood, and scale. Perfect for beating writer's block.</p>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/random?sevenths=true</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Suggestions</div>
+            <div class="endpoint-group">
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/suggest</span>
+                        <span class="endpoint-desc">Get production tips for a genre</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Returns typical BPM range, common keys, recommended scales, and a producer tip for any genre.</p>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/suggest?genre=trap</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/suggest/all</span>
+                        <span class="endpoint-desc">All genre suggestions at once</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Get production suggestions for every supported genre in one call.</p>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/suggest/all</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Scales & Chords</div>
+            <div class="endpoint-group">
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/scale</span>
+                        <span class="endpoint-desc">Get notes in a scale</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Returns all notes in a given scale.</p>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/scale?root=A&type=dorian</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/chords</span>
+                        <span class="endpoint-desc">All diatonic chords in a key</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Get every diatonic chord in a key with optional 7ths and inversions.</p>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/chords?key=D&scale=minor&sevenths=true</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/chord</span>
+                        <span class="endpoint-desc">Look up a single chord</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Get notes and MIDI values for any chord type with optional inversions.</p>
+                        <div class="try-box">
+                            <div class="try-label">Example</div>
+                            <div class="try-url">/chord?root=E&type=min7&inversion=1</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Reference</div>
+            <div class="endpoint-group">
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/scales</span>
+                        <span class="endpoint-desc">List all scale types</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                </div>
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/chord-types</span>
+                        <span class="endpoint-desc">List all chord types</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                </div>
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/genres</span>
+                        <span class="endpoint-desc">List all genres</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                </div>
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/moods</span>
+                        <span class="endpoint-desc">List all moods</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                </div>
+                <div class="endpoint" onclick="this.classList.toggle('open')">
+                    <div class="endpoint-header">
+                        <span class="method">GET</span>
+                        <span class="endpoint-path">/instruments</span>
+                        <span class="endpoint-desc">List all MIDI instruments</span>
+                        <span class="endpoint-arrow">&#9654;</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        ChordCraft API v1.1.0 &mdash; Built for producers, by a producer.
+    </div>
+</body>
+</html>"""
+
+
+@app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
+def custom_docs():
+    return CUSTOM_DOCS_HTML
 
 # CORS for RapidAPI and general use
 app.add_middleware(
@@ -276,6 +819,13 @@ def suggest_for_genre(
     Perfect for figuring out where to start a new track.
     """
     genre_lower = genre.lower()
+    genre_aliases = {
+        "rap": "hiphop", "hip-hop": "hiphop", "hip hop": "hiphop",
+        "r&b": "rnb", "r and b": "rnb",
+        "lo-fi": "lofi", "lo fi": "lofi",
+        "electronic": "edm",
+    }
+    genre_lower = genre_aliases.get(genre_lower, genre_lower)
     if genre_lower not in GENRE_SUGGESTIONS:
         raise HTTPException(
             status_code=400,
